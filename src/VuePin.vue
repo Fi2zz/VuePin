@@ -123,6 +123,11 @@ let delay = (fn, time = 0) => {
   }, time);
 };
 
+const updateNode = el => next => el && next(el);
+
+const DOMUpdater = (index, next) =>
+  delay(() => updateNode(getNode(index))(next), 5);
+
 export default {
   name: "VuePin",
   props: {
@@ -150,7 +155,7 @@ export default {
             notReadonlyIndex = index;
           }
         }
-        this.updateNode(notReadonlyIndex, el => el.focus());
+        DOMUpdater(notReadonlyIndex, el => el.focus());
       }
     },
     size: {
@@ -241,14 +246,8 @@ export default {
         this.readonly[index] = true;
         this.values[prevIndex] = "";
         this.readonly[prevIndex] = false;
-        this.updateNode(index, el => el.blur());
+        DOMUpdater(index, el => el.blur());
       }
-    },
-    updateNode(index, next) {
-      delay(() => {
-        let nextInputEl = getNode(index);
-        typeof next === "function" && nextInputEl && next(nextInputEl);
-      }, 5);
     }
   }
 };
