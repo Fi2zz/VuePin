@@ -1,45 +1,106 @@
-
 <template>
-        <div class="vue-pin">
-                <input type="number" 
-                v-for="(item,index) in size" 
-                :key="index" 
-                min="0"
-                max="9"
-                @input="onInput($event,index)"
-                @keyup="onKeyPress($event,index)"
-                @click="onItemClick(index)"
-                @blur="onBlur(index)"
-                @focus="onFocus(index)"
-                :id="createId(index)"
-                :readonly="readOnly[index]"
-                 />
+    <div class="vue-pin" :style="{width:`${size*45+2}px`}">
+
+
+        <div class="input"
+             v-for="(item,index) in nodes"
+             :key="item"
+             :class="{active:!readonly[index]}"
+        >
+
+            <div class="display">{{values[index]}}</div>
+            <input type="number"
+                   min="0"
+                   max="9"
+                   @input="onInput($event,index)"
+                   @keyup.backspace="onBackspace(index)"
+                   @click="onClick(index)"
+                   @focus="onFocus(index)"
+                   :id="item"
+                   :readonly="readonly[index]"
+                   :value="values[index]"
+                   :autofocus="parseInt(index)===0"
+            />
         </div>
+    </div>
 </template>
 
 
 <style>
+.vue-pin * {
+  box-sizing: border-box;
+}
+
 .vue-pin {
+  box-sizing: border-box;
   font-size: 0;
   text-align: center;
+  margin: auto;
+  position: relative;
+}
+
+.vue-pin .input {
+  width: 44px;
+  height: 44px;
+  display: inline-block;
+  vertical-align: top;
+  border: 1px #ccc solid;
+  border-right: none;
+  position: relative;
+  z-index: 9;
+}
+
+.vue-pin .input .display {
+  font-size: 16px;
+  font-weight: bold;
+  width: 44px;
+  height: 44px;
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  line-height: 43px;
+}
+
+.vue-pin .input.active {
+  border-color: orange;
+  border-right: 1px orange solid !important;
+}
+
+.vue-pin .input.active + div {
+  border-left: none;
 }
 
 .vue-pin input {
-  width: 44px;
+  width: 100%;
+  position: absolute;
+  top: 0;
+  left: 0;
+  bottom: 0;
+
   height: 44px;
   -webkit-appearance: none;
   text-align: center;
   line-height: 44px;
   padding: 0;
   margin: 0;
-  border: 1px #ccc solid;
-  border-right: none;
+
+  border: none;
+  border-radius: 0;
   outline: none;
-  font-size: 16px;
-  font-weight: bold;
+  cursor: none;
+  font-size: 0;
+  background-color: rgba(0, 0, 0, 0);
+  opacity: 0;
 }
-.vue-pin input:nth-last-of-type(1) {
+
+.vue-pin .input:nth-last-of-type(1) {
   border-right: 1px #ccc solid;
+}
+
+.vue-pin input[readonly="readonly"] {
+  outline: none;
 }
 
 .vue-pin input::-webkit-inner-spin-button,
@@ -51,96 +112,144 @@
 
 
 <script>
+let idGenerator = id => `vue-pin-item_${id}`;
+
+let getNode = id => document.getElementById(idGenerator(id));
+
+let delay = (fn, time = 0) => {
+  let timer = setTimeout(() => {
+    fn();
+    clearTimeout(timer);
+  }, time);
+};
+
 export default {
   name: "VuePin",
   props: {
     size: {
       type: Number,
       default: 6
-    },
-    immediate: {
-      type: Boolean,
-      default: false
     }
   },
   data() {
     return {
       values: {},
-      readOnly: {},
-      refsMap: {}
+      readonly: {},
+      nodes: {}
     };
   },
   watch: {
+    readonly: {
+      immediate: true,
+      deep: true,
+      handler(readonly) {
+        let notReadonlyIndex = -1;
+        for (let index in readonly) {
+          let value = readonly[index];
+          if (value === false) {
+            notReadonlyIndex = index;
+          }
+        }
+        this.updateNode(notReadonlyIndex, el => el.focus());
+      }
+    },
+    size: {
+      immediate: true,
+      handler(size) {
+        for (let i = 0; i < size; i++) {
+          this.nodes[i] = idGenerator(i);
+          this.$set(this.nodes, i, idGenerator(i));
+          this.$set(this.readonly, i, i !== 0);
+          this.$set(this.values, i, "");
+        }
+      }
+    },
     values: {
       deep: true,
-      //   immediate: true,
+      immediate: true,
       handler(values) {
-        let size = this.size;
-
         let value = Object.keys(values)
           .map(item => values[item])
           .filter(item => !!item);
-
-        if (this.immediate && value.length > 0) {
-          this.$emit("input", value);
-        } else if (value.length === 6) {
-          this.$emit("input", value);
-        }
-
-        console.log(values, value);
+        this.$emit("input", value);
       }
     }
   },
+
   methods: {
-    createId(index) {
-      return `vue-pin-item_${index}`;
-    },
-    getHTMLNode(id) {
-      return document.getElementById(id);
+    checkIndex(index) {
+      index = parseInt(index);
+
+      let lastIndex = index === this.size - 1;
+      let firstIndex = index === 0;
+
+      return {
+        index,
+        next: lastIndex || firstIndex
+      };
     },
     onInput(event, index) {
-      let nextIndex = index + 1;
-      let lastIndex = this.size - 1;
+      index = parseInt(index);
+      let nextIndex = parseInt(index) + 1;
       let text = event.target.value;
-      console.log(text);
       if (text) {
-        this.$set(this.values, index, text);
-        if (nextIndex <= lastIndex) {
-          this.updateNode(nextIndex, el => el.focus());
+        text = text.length >= 2 ? text.substr(1, 1) : text;
+        this.readonly[index] = true;
+        if (nextIndex !== this.size) {
+          this.readonly[nextIndex] = false;
         }
+        this.values[index] = text;
       }
     },
+
     onFocus(index) {
-      console.log(index, "focus");
-      this.$set(this.values, index, "");
-      console.log("values", JSON.stringify(this.values, null, 2));
+      let check = this.checkIndex(index);
+      if (check.next) {
+        this.readonly[index] = false;
+        delay(() => {
+          let node = getNode(index);
+          node && node.select();
+        });
+      }
     },
-    onBlur(index) {
-      this.$set(this.readOnly, index, true);
+
+    cleanFocus() {
+      for (let index in this.readonly) {
+        this.readonly[index] = true;
+      }
     },
-    onItemClick(index) {
-      this.$set(this.readOnly, index, false);
+    onClick(index) {
+      if (!this.values[index]) {
+        return;
+      }
+
+      this.cleanFocus();
+      this.readonly[index] = false;
     },
-    onKeyPress(event, index) {
-      if (event.key === "Backspace") {
-        this.$set(this.values, index, "");
-        const nextIndex = index > 0 ? index - 1 : 0;
-        this.$set(this.readOnly, nextIndex, false);
-        if (!this.values[index]) {
-          this.updateNode(nextIndex, el => el.focus());
+
+    onBackspace(index) {
+      index = parseInt(index);
+      let value = this.values[index];
+      if (value) {
+        this.values[index] = "";
+        this.readonly[index] = false;
+      } else {
+        let prevIndex = index - 1;
+        if (prevIndex < 0) {
+          return;
         }
+        this.readonly[index] = true;
+        this.values[prevIndex] = "";
+        this.readonly[prevIndex] = false;
+        this.updateNode(index, el => el.blur());
       }
     },
     updateNode(index, next) {
-      this.$nextTick(() => {
-        let nextInputElId = this.createId(index);
-        let nextInputEl = this.getHTMLNode(nextInputElId);
-        next(nextInputEl);
-      });
+      delay(() => {
+        let nextInputEl = getNode(index);
+        typeof next === "function" && nextInputEl && next(nextInputEl);
+      }, 5);
     }
   }
 };
 </script>
-
-
-
