@@ -48,6 +48,11 @@
   border-right: none;
   position: relative;
   z-index: 9;
+  cursor: pointer;
+}
+
+.vue-pin .input:nth-last-of-type(1) {
+  border-right: 1px #ccc solid;
 }
 
 .vue-pin .input .display {
@@ -61,6 +66,7 @@
   right: 0;
   bottom: 0;
   line-height: 43px;
+  cursor: pointer;
 }
 
 .vue-pin .input.active {
@@ -78,7 +84,7 @@
   top: 0;
   left: 0;
   bottom: 0;
-
+  right: 0;
   height: 44px;
   -webkit-appearance: none;
   text-align: center;
@@ -93,14 +99,7 @@
   font-size: 0;
   background-color: rgba(0, 0, 0, 0);
   opacity: 0;
-}
-
-.vue-pin .input:nth-last-of-type(1) {
-  border-right: 1px #ccc solid;
-}
-
-.vue-pin input[readonly="readonly"] {
-  outline: none;
+  cursor: pointer;
 }
 
 .vue-pin input::-webkit-inner-spin-button,
@@ -112,11 +111,11 @@
 
 
 <script>
-let idGenerator = id => `vue-pin-item_${id}`;
+const idGenerator = id => `vue-pin-item-${id}`;
 
-let getNode = id => document.getElementById(idGenerator(id));
+const getNode = id => document.getElementById(idGenerator(id));
 
-let delay = (fn, time = 0) => {
+const delay = (fn, time = 0) => {
   let timer = setTimeout(() => {
     fn();
     clearTimeout(timer);
@@ -125,8 +124,8 @@ let delay = (fn, time = 0) => {
 
 const updateNode = el => next => el && next(el);
 
-const DOMUpdater = (index, next) =>
-  delay(() => updateNode(getNode(index))(next), 5);
+const DOMMutater = index => next =>
+  delay(() => updateNode(getNode(index))(next), 0);
 
 export default {
   name: "VuePin",
@@ -155,7 +154,7 @@ export default {
             notReadonlyIndex = index;
           }
         }
-        DOMUpdater(notReadonlyIndex, el => el.focus());
+        DOMMutater(notReadonlyIndex)(el => el.focus());
       }
     },
     size: {
@@ -211,10 +210,8 @@ export default {
       let check = this.checkIndex(index);
       if (check.next) {
         this.readonly[index] = false;
-        delay(() => {
-          let node = getNode(index);
-          node && node.select();
-        });
+
+        DOMMutater(index)(el => el.select());
       }
     },
 
@@ -227,7 +224,6 @@ export default {
       if (!this.values[index]) {
         return;
       }
-
       this.cleanFocus();
       this.readonly[index] = false;
     },
@@ -246,7 +242,7 @@ export default {
         this.readonly[index] = true;
         this.values[prevIndex] = "";
         this.readonly[prevIndex] = false;
-        DOMUpdater(index, el => el.blur());
+        DOMMutater(index)(el => el.blur());
       }
     }
   }
